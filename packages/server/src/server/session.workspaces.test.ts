@@ -430,6 +430,7 @@ function createWorkspaceRuntimeSnapshot(
       aheadBehind: { ahead: 0, behind: 0 },
       aheadOfOrigin: 0,
       behindOfOrigin: 0,
+      detachedCommitCount: null,
       hasRemote: true,
       diffStat: { additions: 1, deletions: 0 },
     },
@@ -7276,6 +7277,9 @@ test("fetch_workspaces_response reads runtime fields from passive workspace git 
     | undefined;
 
   expect(getRuntimeSnapshotForFetch).toHaveBeenCalledWith(REPO_CWD);
+  // Apps up to v0.16.0 reject a cached gitRuntime with unknown keys, so a branch omits it.
+  const entries = (response?.payload.entries ?? []) as Array<{ gitRuntime: object }>;
+  expect(entries[0]?.gitRuntime).not.toHaveProperty("detachedCommitCount");
   expect(response?.payload.entries).toEqual([
     expect.objectContaining({
       id: "ws-runtime-fetch",

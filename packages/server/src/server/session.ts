@@ -6182,7 +6182,10 @@ export class Session {
       aheadBehind: snapshot.git.aheadBehind,
       aheadOfOrigin: snapshot.git.aheadOfOrigin,
       behindOfOrigin: snapshot.git.behindOfOrigin,
-      detachedCommitCount: snapshot.git.detachedCommitCount,
+      // Apps up to v0.16.0 drop a cached gitRuntime with unknown keys, so a branch omits it.
+      ...(snapshot.git.detachedCommitCount !== null
+        ? { detachedCommitCount: snapshot.git.detachedCommitCount }
+        : {}),
     };
   }
 
