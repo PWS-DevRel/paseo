@@ -6182,7 +6182,8 @@ export class Session {
       aheadBehind: snapshot.git.aheadBehind,
       aheadOfOrigin: snapshot.git.aheadOfOrigin,
       behindOfOrigin: snapshot.git.behindOfOrigin,
-      // Apps up to v0.16.0 drop a cached gitRuntime with unknown keys, so a branch omits it.
+      // COMPAT(gitRuntimeDetachedCommitCount): added in v0.16.1, remove after 2027-05-16. Apps up
+      // to v0.16.0 drop a cached gitRuntime with unknown keys, so a branch omits the field.
       ...(snapshot.git.detachedCommitCount !== null
         ? { detachedCommitCount: snapshot.git.detachedCommitCount }
         : {}),
