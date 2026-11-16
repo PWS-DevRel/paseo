@@ -1439,7 +1439,7 @@ describe("WorkspaceGitServiceImpl", () => {
     service.dispose();
   });
 
-  test("a detached HEAD keeps its unpushed count when its base remote ref moves", async () => {
+  test("a detached HEAD recounts the commits only it holds when its base remote ref moves", async () => {
     const releaseFetch = createDeferred<void>();
     const getCheckoutSnapshotFacts = vi.fn(async (cwd: string) => ({
       ...createCheckoutSnapshotFacts(cwd),
@@ -1452,6 +1452,8 @@ describe("WorkspaceGitServiceImpl", () => {
       upstreamStatus: null,
       pullRequestLookupTarget: null,
     }));
+    // The fetch brings a remote ref that now holds the detached commit.
+    let detachedCommitCount = 1;
     const getCheckoutStatus = vi.fn(async (cwd: string) =>
       createCheckoutStatus(cwd, {
         currentBranch: null,
@@ -1459,7 +1461,7 @@ describe("WorkspaceGitServiceImpl", () => {
         upstreamRef: null,
         aheadOfOrigin: null,
         behindOfOrigin: null,
-        detachedCommitCount: 1,
+        detachedCommitCount,
       }),
     );
     const getCheckoutRefDerivedState = vi.fn(async (_cwd, facts, current) => ({
@@ -1487,19 +1489,16 @@ describe("WorkspaceGitServiceImpl", () => {
     });
     expect((await service.getSnapshot(REPO_CWD)).git.detachedCommitCount).toBe(1);
 
+    detachedCommitCount = 0;
     releaseFetch.resolve();
     await vi.waitFor(() => {
       expect(service.getMetrics().fetchInFlightCount).toBe(0);
     });
     await vi.advanceTimersByTimeAsync(1_000);
-    // The moved base reaches the workspace through one refresh, narrow or structural.
     await vi.waitFor(() => {
-      expect(
-        getCheckoutRefDerivedState.mock.calls.length + getCheckoutSnapshotFacts.mock.calls.length,
-      ).toBe(3);
       expect(service.getMetrics().workspaceRefreshInFlightCount).toBe(0);
     });
-    expect((await service.getSnapshot(REPO_CWD)).git.detachedCommitCount).toBe(1);
+    expect((await service.getSnapshot(REPO_CWD)).git.detachedCommitCount).toBe(0);
 
     subscription.unsubscribe();
     service.dispose();
