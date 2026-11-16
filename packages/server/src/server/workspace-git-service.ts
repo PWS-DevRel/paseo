@@ -2870,7 +2870,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       const usesBranch = dependentRefs.some(
         (ref) => ref === branch || ref === `refs/heads/${branch}`,
       );
-      if (facts.currentBranch === branch || usesBranch) {
+      if (facts.currentBranch === branch || usesBranch || dependsOnEveryRef(facts)) {
         this.addWorkspaceMetadataRefresh(refreshes, workspaceKey, true);
       }
     }
@@ -2886,27 +2886,15 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     for (const workspaceKey of target.workspaceKeys) {
       const facts = this.workspaceTargets.get(workspaceKey)?.latestFacts;
       if (!facts?.isGit) continue;
-      const trackedBranch = facts.branchMergeRef?.startsWith("refs/heads/")
-        ? facts.branchMergeRef.slice("refs/heads/".length)
-        : null;
-      const configuredRemoteRef =
-        facts.branchRemoteName && facts.branchRemoteName !== "." && trackedBranch
-          ? `${facts.branchRemoteName}/${trackedBranch}`
-          : null;
-      const shortstatRemoteRef =
-        facts.currentBranch &&
-        (!facts.resolvedBaseRef || branchNameFromRef(facts.resolvedBaseRef) === facts.currentBranch)
-          ? `origin/${facts.currentBranch}`
-          : null;
-      const refs = [
-        facts.storedBaseRef,
-        facts.resolvedBaseRef,
-        facts.comparisonBaseRef,
-        facts.upstreamStatus?.ref,
-        configuredRemoteRef,
-        shortstatRemoteRef,
-      ];
-      const usesRemoteRef = refs.some((ref) => ref === remoteRef || ref === qualifiedRemoteRef);
+      if (dependsOnEveryRef(facts)) {
+        this.addWorkspaceMetadataRefresh(refreshes, workspaceKey, true, {
+          queueIfBusy: options?.queueIfBusy,
+        });
+        continue;
+      }
+      const usesRemoteRef = remoteRefsReadBy(facts).some(
+        (ref) => ref === remoteRef || ref === qualifiedRemoteRef,
+      );
       if (usesRemoteRef) {
         this.addWorkspaceMetadataRefresh(refreshes, workspaceKey, true, {
           structural: options?.narrow !== true,
@@ -3586,9 +3574,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   ): Promise<WorkspaceGitRuntimeSnapshot> {
     let facts = target.latestFacts;
     if (request.movedRemoteRefs.size > 0 && !request.refreshStructure && !request.refreshWorktree) {
-      // A detached HEAD's detachedCommitCount depends on every remote-tracking ref, which the
-      // narrow refresh doesn't recount, so it takes the structural refresh.
-      if (facts?.isGit && facts.currentBranch !== null && target.latestGit?.isGit) {
+      if (facts?.isGit && target.latestGit?.isGit) {
         try {
           await this.refreshRefDerivedSnapshot(
             target,
@@ -4359,6 +4345,40 @@ function parseWorkspaceGitStashList(
   }
 
   return entries;
+}
+
+// The remote-tracking refs a workspace on a branch reads: its base and comparison refs, its upstream,
+// and the remote branch its shortstat compares against.
+function remoteRefsReadBy(
+  facts: CheckoutSnapshotFacts & { isGit: true },
+): Array<string | null | undefined> {
+  const trackedBranch = facts.branchMergeRef?.startsWith("refs/heads/")
+    ? facts.branchMergeRef.slice("refs/heads/".length)
+    : null;
+  const configuredRemoteRef =
+    facts.branchRemoteName && facts.branchRemoteName !== "." && trackedBranch
+      ? `${facts.branchRemoteName}/${trackedBranch}`
+      : null;
+  const shortstatRemoteRef =
+    facts.currentBranch &&
+    (!facts.resolvedBaseRef || branchNameFromRef(facts.resolvedBaseRef) === facts.currentBranch)
+      ? `origin/${facts.currentBranch}`
+      : null;
+  return [
+    facts.storedBaseRef,
+    facts.resolvedBaseRef,
+    facts.comparisonBaseRef,
+    facts.upstreamStatus?.ref,
+    configuredRemoteRef,
+    shortstatRemoteRef,
+  ];
+}
+
+// A detached HEAD's detachedCommitCount counts the commits no branch, tag or remote-tracking ref
+// holds, so a move of any branch or remote-tracking ref recounts it with the structural refresh.
+// Tag changes already refresh every workspace.
+function dependsOnEveryRef(facts: CheckoutSnapshotFacts & { isGit: true }): boolean {
+  return facts.currentBranch === null;
 }
 
 function buildNotGitSnapshot(cwd: string): WorkspaceGitRuntimeSnapshot {

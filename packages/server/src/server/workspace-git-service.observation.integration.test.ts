@@ -1576,3 +1576,95 @@ test("a failed parent lookup is not repeated by forced refreshes before the retr
 
   expect(lookups).toBe(1);
 }, 30_000);
+
+// A worktree that made one commit on `feature`, detached HEAD there, and made one more commit that
+// only HEAD holds. `heldBy` names the one ref that still holds the first commit.
+async function observeDetachedWorktree(heldBy: "feature" | "origin/save") {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), "paseo-detached-count-")));
+  const origin = path.join(root, "origin.git");
+  const repo = path.join(root, "repo");
+  const worktree = path.join(root, "wt");
+  const gitIn =
+    (cwd: string) =>
+    (...args: string[]) =>
+      execFileSync("git", ["-c", "commit.gpgsign=false", ...args], { cwd, stdio: "pipe" })
+        .toString()
+        .trim();
+  mkdirSync(repo);
+  execFileSync("git", ["init", "--bare", "-b", "main", origin], { stdio: "pipe" });
+  const git = gitIn(repo);
+  git("init", "-b", "main");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "Test");
+  writeFileSync(path.join(repo, "README.md"), "base\n");
+  git("add", ".");
+  git("commit", "-m", "base");
+  git("remote", "add", "origin", origin);
+  git("push", "origin", "main");
+  git("fetch", "origin");
+  git("worktree", "add", "-b", "feature", worktree, "main");
+  const worktreeGit = gitIn(worktree);
+  let commits = 0;
+  const commit = () => {
+    commits += 1;
+    writeFileSync(path.join(worktree, `work-${commits}.txt`), `${commits}\n`);
+    worktreeGit("add", ".");
+    worktreeGit("commit", "-m", `work ${commits}`);
+    return worktreeGit("rev-parse", "HEAD");
+  };
+  commit();
+  worktreeGit("checkout", "--detach");
+  if (heldBy === "origin/save") {
+    git("push", "origin", "feature:save");
+    git("branch", "-f", "feature", "main");
+  }
+
+  const observer = createFileObserver();
+  const service = new WorkspaceGitServiceImpl({
+    logger: pino({ enabled: false }),
+    paseoHome: path.join(root, "home"),
+    deps: { subscribe: observer.subscribe.bind(observer) },
+  });
+  const subscription = service.registerWorkspace({ cwd: worktree }, () => {});
+  cleanup.push(async () => {
+    subscription.unsubscribe();
+    await service.dispose();
+    await observer.close();
+    rmSync(root, { recursive: true, force: true });
+  });
+  const cachedDetachedCommitCount = async () =>
+    (await service.getSnapshot(worktree, { includeForge: false })).git.detachedCommitCount;
+
+  // A commit on the detached HEAD recounts through the worktree's own HEAD, which shows the
+  // metadata watcher is live. Waiting out the refresh debounce and minimum gap keeps the next
+  // ref change from riding along with that refresh.
+  const detachedHead = commit();
+  await expect.poll(cachedDetachedCommitCount, { timeout: 10_000 }).toBe(1);
+  await new Promise((resolve) => setTimeout(resolve, 3_000));
+
+  return { git, detachedHead, cachedDetachedCommitCount };
+}
+
+test("a detached HEAD recounts its commits when the branch that held them moves away", async () => {
+  const { git, cachedDetachedCommitCount } = await observeDetachedWorktree("feature");
+
+  git("branch", "-f", "feature", "main");
+
+  await expect.poll(cachedDetachedCommitCount, { timeout: 10_000 }).toBe(2);
+}, 30_000);
+
+test("a detached HEAD recounts its commits when a new branch takes them", async () => {
+  const { git, detachedHead, cachedDetachedCommitCount } = await observeDetachedWorktree("feature");
+
+  git("branch", "save-it", detachedHead);
+
+  await expect.poll(cachedDetachedCommitCount, { timeout: 10_000 }).toBe(0);
+}, 30_000);
+
+test("a detached HEAD recounts its commits when the remote ref that held them is force-pushed", async () => {
+  const { git, cachedDetachedCommitCount } = await observeDetachedWorktree("origin/save");
+
+  git("push", "-f", "origin", "main:save");
+
+  await expect.poll(cachedDetachedCommitCount, { timeout: 10_000 }).toBe(2);
+}, 30_000);
