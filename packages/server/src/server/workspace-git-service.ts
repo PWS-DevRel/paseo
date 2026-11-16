@@ -178,6 +178,7 @@ export interface WorkspaceGitRuntimeSnapshot {
     upstreamRef: string | null;
     aheadOfOrigin: number | null;
     behindOfOrigin: number | null;
+    detachedCommitCount: number | null;
     hasRemote: boolean;
     diffStat: { additions: number; deletions: number } | null;
   };
@@ -3585,8 +3586,8 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   ): Promise<WorkspaceGitRuntimeSnapshot> {
     let facts = target.latestFacts;
     if (request.movedRemoteRefs.size > 0 && !request.refreshStructure && !request.refreshWorktree) {
-      // A detached HEAD's aheadOfOrigin counts the commits no ref holds, which the narrow refresh
-      // doesn't recount, so it takes the structural refresh.
+      // A detached HEAD's detachedCommitCount depends on every remote-tracking ref, which the
+      // narrow refresh doesn't recount, so it takes the structural refresh.
       if (facts?.isGit && facts.currentBranch !== null && target.latestGit?.isGit) {
         try {
           await this.refreshRefDerivedSnapshot(
@@ -3766,6 +3767,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       upstreamRef: checkoutStatus.upstreamRef,
       aheadOfOrigin: checkoutStatus.aheadOfOrigin,
       behindOfOrigin: checkoutStatus.behindOfOrigin,
+      detachedCommitCount: checkoutStatus.detachedCommitCount,
       hasRemote: checkoutStatus.hasRemote,
       diffStat,
     };
@@ -4375,6 +4377,7 @@ function buildNotGitSnapshot(cwd: string): WorkspaceGitRuntimeSnapshot {
       upstreamRef: null,
       aheadOfOrigin: null,
       behindOfOrigin: null,
+      detachedCommitCount: null,
       hasRemote: false,
       diffStat: null,
     },

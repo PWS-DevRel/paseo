@@ -1214,8 +1214,9 @@ const x = 1;
       isPaseoOwnedWorktree: true,
       currentBranch: null,
       upstreamRef: null,
-      aheadOfOrigin: 1,
+      aheadOfOrigin: null,
       behindOfOrigin: null,
+      detachedCommitCount: 1,
     });
   });
 
@@ -1237,8 +1238,9 @@ const x = 1;
       isPaseoOwnedWorktree: true,
       currentBranch: null,
       upstreamRef: null,
-      aheadOfOrigin: 0,
+      aheadOfOrigin: null,
       behindOfOrigin: null,
+      detachedCommitCount: 0,
     });
   });
 

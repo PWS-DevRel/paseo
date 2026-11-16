@@ -57,6 +57,7 @@ function createSnapshot(
       aheadBehind: { ahead: 0, behind: 0 },
       aheadOfOrigin: 0,
       behindOfOrigin: 0,
+      detachedCommitCount: null,
       hasRemote: true,
       diffStat: { additions: 1, deletions: 0 },
     },
@@ -149,6 +150,7 @@ function createCheckoutStatus(
     aheadBehind: { ahead: 0, behind: 0 },
     aheadOfOrigin: 0,
     behindOfOrigin: 0,
+    detachedCommitCount: null,
     hasRemote: true,
     remoteUrl: "https://github.com/acme/repo.git",
     isPaseoOwnedWorktree: false,
@@ -1455,8 +1457,9 @@ describe("WorkspaceGitServiceImpl", () => {
         currentBranch: null,
         aheadBehind: null,
         upstreamRef: null,
-        aheadOfOrigin: 1,
+        aheadOfOrigin: null,
         behindOfOrigin: null,
+        detachedCommitCount: 1,
       }),
     );
     const getCheckoutRefDerivedState = vi.fn(async (_cwd, facts, current) => ({
@@ -1482,7 +1485,7 @@ describe("WorkspaceGitServiceImpl", () => {
       expect(getCheckoutSnapshotFacts).toHaveBeenCalledTimes(2);
       expect(service.getMetrics().fetchInFlightCount).toBe(1);
     });
-    expect((await service.getSnapshot(REPO_CWD)).git.aheadOfOrigin).toBe(1);
+    expect((await service.getSnapshot(REPO_CWD)).git.detachedCommitCount).toBe(1);
 
     releaseFetch.resolve();
     await vi.waitFor(() => {
@@ -1496,7 +1499,7 @@ describe("WorkspaceGitServiceImpl", () => {
       ).toBe(3);
       expect(service.getMetrics().workspaceRefreshInFlightCount).toBe(0);
     });
-    expect((await service.getSnapshot(REPO_CWD)).git.aheadOfOrigin).toBe(1);
+    expect((await service.getSnapshot(REPO_CWD)).git.detachedCommitCount).toBe(1);
 
     subscription.unsubscribe();
     service.dispose();

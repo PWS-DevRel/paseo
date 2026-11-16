@@ -2,6 +2,7 @@ import { deriveEffectiveWorkspaceStatus } from "@/workspace-status";
 import equal from "fast-deep-equal";
 import type { PrHint } from "@/git/pr-hint";
 import { selectPrHintFromStatus } from "@/git/pr-hint";
+import { countUnpushedCommits } from "@/git/worktree-archive-warning";
 import { type HostProjectListItem } from "@/projects/host-project-model";
 import type { PendingCreateAttempt } from "@/stores/create-flow-store";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
@@ -177,7 +178,7 @@ export function createSidebarWorkspaceEntry(input: {
       input.workspace.forge,
     ),
     archiveHasUncommittedChanges: input.workspace.gitRuntime?.isDirty ?? null,
-    archiveUnpushedCommitCount: input.workspace.gitRuntime?.aheadOfOrigin ?? null,
+    archiveUnpushedCommitCount: countUnpushedCommits(input.workspace.gitRuntime ?? {}) ?? null,
     scripts: input.workspace.scripts,
     hasRunningScripts: input.workspace.scripts.some((script) => script.lifecycle === "running"),
   };

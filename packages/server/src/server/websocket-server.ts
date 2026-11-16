@@ -239,6 +239,7 @@ function createFallbackWorkspaceGitSnapshot(cwd: string): WorkspaceGitRuntimeSna
       upstreamRef: null,
       aheadOfOrigin: null,
       behindOfOrigin: null,
+      detachedCommitCount: null,
       hasRemote: false,
       diffStat: null,
     },

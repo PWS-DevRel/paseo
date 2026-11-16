@@ -33,7 +33,7 @@ describe("selectProjectWorkspacesToArchive", () => {
     expect(confirmWorktreeArchive).toHaveBeenCalledWith({
       workspaceName: "feature/risky",
       isDirty: true,
-      aheadOfOrigin: 2,
+      unpushedCommitCount: 2,
       diffStat: { additions: 5, deletions: 1 },
     });
     expect(targets).toEqual([
@@ -75,7 +75,7 @@ describe("selectProjectWorkspacesToArchive", () => {
     expect(confirmWorktreeArchive).toHaveBeenCalledWith({
       workspaceName: "feature/risky",
       isDirty: true,
-      aheadOfOrigin: 2,
+      unpushedCommitCount: 2,
       diffStat: { additions: 5, deletions: 1 },
     });
     expect(targets).toEqual([

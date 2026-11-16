@@ -900,11 +900,13 @@ export interface CheckoutStatusGitNonPaseo {
   aheadBehind: AheadBehind | null;
   // Remote-tracking ref for currentBranch, e.g. "refs/remotes/origin/main". Null when the
   // branch has no upstream or git could not resolve it. aheadOfOrigin/behindOfOrigin are
-  // measured against exactly this ref. On a detached HEAD aheadOfOrigin counts the commits no
-  // branch, tag or remote-tracking ref holds.
+  // measured against exactly this ref.
   upstreamRef: string | null;
   aheadOfOrigin: number | null;
   behindOfOrigin: number | null;
+  // On a detached HEAD, the commits HEAD reaches that no branch, tag or remote-tracking ref
+  // does: removing the worktree loses them. Null when HEAD is on a branch.
+  detachedCommitCount: number | null;
   hasRemote: boolean;
   remoteUrl: string | null;
   isPaseoOwnedWorktree: false;
@@ -923,6 +925,9 @@ export interface CheckoutStatusGitPaseo {
   upstreamRef: string | null;
   aheadOfOrigin: number | null;
   behindOfOrigin: number | null;
+  // On a detached HEAD, the commits HEAD reaches that no branch, tag or remote-tracking ref
+  // does: removing the worktree loses them. Null when HEAD is on a branch.
+  detachedCommitCount: number | null;
   hasRemote: boolean;
   remoteUrl: string | null;
   isPaseoOwnedWorktree: true;
@@ -2458,11 +2463,8 @@ export async function getCheckoutStatus(
   // comparisons and actions read it.
   const displayBaseRef = baseRef ? branchNameFromRef(baseRef) : null;
   const upstreamRef = upstreamStatus?.ref ?? null;
-  // A detached HEAD has no upstream. Its unpushed commits are the ones only HEAD holds, which
-  // archiving the worktree would lose.
-  const aheadOfOrigin = currentBranch
-    ? (upstreamStatus?.aheadBehind.ahead ?? null)
-    : await countCommitsOnlyOnHead(cwd, context);
+  const aheadOfOrigin = upstreamStatus?.aheadBehind.ahead ?? null;
+  const detachedCommitCount = currentBranch ? null : await countCommitsOnlyOnHead(cwd, context);
   const behindOfOrigin = upstreamStatus?.aheadBehind.behind ?? null;
 
   if (paseoWorktree.isPaseoOwnedWorktree && baseRef) {
@@ -2479,6 +2481,7 @@ export async function getCheckoutStatus(
       upstreamRef,
       aheadOfOrigin,
       behindOfOrigin,
+      detachedCommitCount,
       hasRemote,
       remoteUrl,
       isPaseoOwnedWorktree: true,
@@ -2499,6 +2502,7 @@ export async function getCheckoutStatus(
     upstreamRef,
     aheadOfOrigin,
     behindOfOrigin,
+    detachedCommitCount,
     hasRemote,
     remoteUrl,
     isPaseoOwnedWorktree: false,

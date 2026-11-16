@@ -4379,6 +4379,8 @@ const WorkspaceGitRuntimePayloadSchema = z
       .optional(),
     aheadOfOrigin: z.number().nullable().optional(),
     behindOfOrigin: z.number().nullable().optional(),
+    // See CheckoutStatusCommonSchema.detachedCommitCount.
+    detachedCommitCount: z.number().nullable().optional(),
   })
   .optional()
   .nullable();
@@ -5735,6 +5737,10 @@ const CheckoutStatusCommonSchema = z.object({
   // upstream branch name is not necessarily currentBranch, so composing one is wrong.
   // aheadOfOrigin/behindOfOrigin are measured against exactly this ref.
   upstreamRef: z.string().nullable().optional(),
+  // On a detached HEAD, the commits HEAD reaches that no branch, tag or remote-tracking ref
+  // does: removing the worktree loses them. Null when HEAD is on a branch; absent from
+  // hosts that predate it.
+  detachedCommitCount: z.number().nullable().optional(),
   forgeWeb: ForgeWebSchema.optional(),
 });
 

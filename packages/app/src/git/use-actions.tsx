@@ -143,13 +143,10 @@ interface GitCommitCounts {
 }
 
 function extractGitCommitCounts(gitStatus: CheckoutStatusPayload | null): GitCommitCounts {
-  // On a detached HEAD the host counts the commits only HEAD holds as aheadOfOrigin, so archive
-  // can warn about them. There is no branch to push them to.
-  const isDetachedHead = !gitStatus?.currentBranch;
   return {
     aheadCount: gitStatus?.aheadBehind?.ahead ?? 0,
     behindBaseCount: gitStatus?.aheadBehind?.behind ?? 0,
-    aheadOfOrigin: isDetachedHead ? null : (gitStatus?.aheadOfOrigin ?? null),
+    aheadOfOrigin: gitStatus?.aheadOfOrigin ?? null,
     behindOfOrigin: gitStatus?.behindOfOrigin ?? null,
   };
 }

@@ -4,7 +4,7 @@ import { i18n } from "@/i18n/i18next";
 
 export interface WorktreeArchiveRisk {
   isDirty?: boolean | null;
-  aheadOfOrigin?: number | null;
+  unpushedCommitCount?: number | null;
   diffStat?: { additions: number; deletions: number } | null;
 }
 
@@ -50,6 +50,19 @@ export const DEFAULT_WORKTREE_ARCHIVE_WARNING_LABELS: WorktreeArchiveWarningLabe
       : i18n.t("workspace.git.actions.archiveWarning.unpushedCommits", { count }),
 };
 
+interface WorktreeCommitCounts {
+  aheadOfOrigin?: number | null;
+  detachedCommitCount?: number | null;
+}
+
+/**
+ * The commits a worktree holds that its remote doesn't: on a branch, the ones ahead of its
+ * upstream; on a detached HEAD, the ones no other ref holds, which archiving loses.
+ */
+export function countUnpushedCommits(git: WorktreeCommitCounts): number | null | undefined {
+  return git.detachedCommitCount ?? git.aheadOfOrigin;
+}
+
 /**
  * Reads the worktree's uncommitted changes and unpushed commits from its host. A directory the
  * host no longer reads as a git checkout has neither. Rejects when the host can't read it.
@@ -57,18 +70,18 @@ export const DEFAULT_WORKTREE_ARCHIVE_WARNING_LABELS: WorktreeArchiveWarningLabe
 export async function readWorktreeArchiveRisk(
   client: CheckoutStatusClient,
   workspaceDirectory: string,
-): Promise<Pick<WorktreeArchiveRisk, "isDirty" | "aheadOfOrigin">> {
+): Promise<Pick<WorktreeArchiveRisk, "isDirty" | "unpushedCommitCount">> {
   const status = await client.getCheckoutStatus(workspaceDirectory);
   if (status.error) {
     throw new Error(status.error.message);
   }
-  return { isDirty: status.isDirty ?? false, aheadOfOrigin: status.aheadOfOrigin };
+  return { isDirty: status.isDirty ?? false, unpushedCommitCount: countUnpushedCommits(status) };
 }
 
 export function toWorktreeArchiveRisk(input: WorktreeArchiveRiskInput): WorktreeArchiveRisk {
   return {
     isDirty: input.archiveHasUncommittedChanges,
-    aheadOfOrigin: input.archiveUnpushedCommitCount,
+    unpushedCommitCount: input.archiveUnpushedCommitCount,
     diffStat: input.diffStat,
   };
 }
@@ -109,9 +122,9 @@ export function buildWorktreeArchiveRiskReasons(
     );
   }
 
-  if ((input.aheadOfOrigin ?? 0) > 0) {
-    const aheadOfOrigin = input.aheadOfOrigin ?? 0;
-    reasons.push(labels.unpushedCommit(aheadOfOrigin));
+  const unpushedCommitCount = input.unpushedCommitCount ?? 0;
+  if (unpushedCommitCount > 0) {
+    reasons.push(labels.unpushedCommit(unpushedCommitCount));
   }
 
   return reasons;

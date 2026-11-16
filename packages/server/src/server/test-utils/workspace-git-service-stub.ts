@@ -17,6 +17,7 @@ export function createNoGitWorkspaceRuntimeSnapshot(cwd: string): WorkspaceGitRu
       aheadBehind: null,
       aheadOfOrigin: null,
       behindOfOrigin: null,
+      detachedCommitCount: null,
       hasRemote: false,
       diffStat: null,
     },

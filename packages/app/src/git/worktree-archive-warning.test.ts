@@ -60,15 +60,42 @@ describe("reading a worktree's archive risk from its host", () => {
 
     expect(await readWorktreeArchiveRisk(host, WORKTREE)).toEqual({
       isDirty: true,
-      aheadOfOrigin: 2,
+      unpushedCommitCount: 2,
     });
     expect(host.asked).toEqual([WORKTREE]);
+  });
+
+  it("counts the commits only a detached HEAD holds as unpushed", async () => {
+    const host = hostAnswering({
+      cwd: WORKTREE,
+      requestId: "status",
+      isGit: true,
+      isPaseoOwnedWorktree: true,
+      repoRoot: WORKTREE,
+      mainRepoRoot: "/home/me/repo",
+      currentBranch: null,
+      isDirty: false,
+      baseRef: "main",
+      aheadBehind: null,
+      upstreamRef: null,
+      aheadOfOrigin: null,
+      behindOfOrigin: null,
+      detachedCommitCount: 1,
+      hasRemote: true,
+      remoteUrl: "git@example.com:me/repo.git",
+      error: null,
+    });
+
+    expect(await readWorktreeArchiveRisk(host, WORKTREE)).toEqual({
+      isDirty: false,
+      unpushedCommitCount: 1,
+    });
   });
 
   it("finds nothing to lose in a directory that is no longer a git checkout", async () => {
     expect(await readWorktreeArchiveRisk(hostAnswering(NOT_GIT), WORKTREE)).toEqual({
       isDirty: false,
-      aheadOfOrigin: null,
+      unpushedCommitCount: null,
     });
   });
 
@@ -88,7 +115,7 @@ describe("workspace archive warning for worktree backing", () => {
       buildWorktreeArchiveConfirmationMessage({
         workspaceName: "feature",
         isDirty: false,
-        aheadOfOrigin: 0,
+        unpushedCommitCount: 0,
         diffStat: null,
       }),
     ).toBeNull();
@@ -98,7 +125,7 @@ describe("workspace archive warning for worktree backing", () => {
     expect(
       buildWorktreeArchiveRiskReasons({
         isDirty: true,
-        aheadOfOrigin: 0,
+        unpushedCommitCount: 0,
         diffStat: { additions: 12, deletions: 1 },
       }),
     ).toEqual(["Uncommitted changes (12 added lines, 1 deleted line)"]);
@@ -108,7 +135,7 @@ describe("workspace archive warning for worktree backing", () => {
     expect(
       buildWorktreeArchiveRiskReasons({
         isDirty: undefined,
-        aheadOfOrigin: 0,
+        unpushedCommitCount: 0,
         diffStat: { additions: 4, deletions: 0 },
       }),
     ).toEqual(["Uncommitted changes (4 added lines)"]);
@@ -118,7 +145,7 @@ describe("workspace archive warning for worktree backing", () => {
     expect(
       buildWorktreeArchiveRiskReasons({
         isDirty: false,
-        aheadOfOrigin: 2,
+        unpushedCommitCount: 2,
         diffStat: null,
       }),
     ).toEqual(["2 unpushed commits"]);
@@ -129,7 +156,7 @@ describe("workspace archive warning for worktree backing", () => {
       buildWorktreeArchiveConfirmationMessage({
         workspaceName: "risky-feature",
         isDirty: true,
-        aheadOfOrigin: 1,
+        unpushedCommitCount: 1,
         diffStat: { additions: 1, deletions: 3 },
       }),
     ).toBe("Uncommitted changes (1 added line, 3 deleted lines)\n1 unpushed commit");
@@ -144,7 +171,7 @@ describe("workspace archive warning for worktree backing", () => {
       }),
     ).toEqual({
       isDirty: true,
-      aheadOfOrigin: 3,
+      unpushedCommitCount: 3,
       diffStat: { additions: 2, deletions: 1 },
     });
   });
